@@ -52,7 +52,6 @@ export default css`
     height: 0; 
     border-left: 60px solid transparent;
     border-right: 60px solid transparent;
-    
     border-bottom: 60px solid #bbb;
   }
 

@@ -11,11 +11,11 @@ export class TasksistantBoardCase extends LitElement {
     */
   constructor() {
     super();
-    this.board = {}
-    this.currentNode = {};
+    this.board = {};
     this.buttonMessage = '';
     this.rowsNumber = 0;
     this.columnsNumber = 0;
+    this.order = 'figure terminator left arrow right path';
   }
 
   /**
@@ -24,10 +24,10 @@ export class TasksistantBoardCase extends LitElement {
   static get properties() {
     return {
       board: {type:Object},
-      currentNode: {type:Object},
       bottonMessage: {type: String},
       rowsNumber: {type: Number},
-      columnsNumber: {type: Number}
+      columnsNumber: {type: Number},
+      order: {type: String}
     };
   }
   
@@ -42,7 +42,6 @@ export class TasksistantBoardCase extends LitElement {
 
   loadReloadBoard() {
     this.board.linkBoardSpace();
-    this.currentNode = this.board.currentNode;
   }
 
   setBoardSpace(e) {
@@ -57,8 +56,12 @@ export class TasksistantBoardCase extends LitElement {
   _moveCurrentNode(e){
     const direction = e.target.getAttribute('value');
     this.board.navigateFromCurrentNodeTo(direction);
-    this.currentNode = this.board.currentNode;
   }
+
+  _fillCell(e) {
+    const value = e.target.getAttribute('value');
+    this.board.executeOrderOnCurrentNode(value);
+  };
 
   render() {
     return html`
@@ -79,7 +82,7 @@ export class TasksistantBoardCase extends LitElement {
           <div id="middle-section">
             <div id="arrow-left" value="left" @click="${this._moveCurrentNode}"></div>
             <div id="circle-container">
-              <div id="circle"></div>
+              <div id="circle" value="${this.order}" @click="${this._fillCell}"></div>
             </div>
             <div id="arrow-right" value="right" @click="${this._moveCurrentNode}"></div>
           </div>
