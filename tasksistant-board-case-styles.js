@@ -17,6 +17,10 @@ export default css`
     overflow: scroll;
   }
 
+  tasksistant-board-component {
+    
+  }
+
   #control-container {
     border: solid;
     border-left: none;
