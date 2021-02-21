@@ -1,5 +1,5 @@
 import { LitElement, html } from "lit-element";
-import { Processor } from"./tasksistant-board-processor";
+import { Processor } from "./tasksistant-board-processor";
 import "@tasksistant-components/tasksistant-board-component";
 import styles from "./tasksistant-board-case-styles";
 
@@ -14,13 +14,15 @@ export class TasksistantBoardCase extends LitElement {
     this.board = {};
     this.previousNode = {};
     this.currentNode = {};
+    this.currentNodeValidNeighbors = [];
     this.buttonMessage = '';
+    this.reload = false;
     this.rowsNumber = 0;
     this.columnsNumber = 0;
-    this.order = "figure terminator";
+    this.order = 'figure terminator';
     this.processor = {};
     this.itemsButtons = [];
-  }
+  };
 
   /**
    * Object describing property-related metadata used by Polymer features
@@ -28,28 +30,38 @@ export class TasksistantBoardCase extends LitElement {
   static get properties() {
     return {
       board: { type: Object },
+      previousNode: {type: Object },
+      currentNode: {type: Object },
+      currentNodeValidNeighbors: {type: Object},
       bottonMessage: { type: String },
       rowsNumber: { type: Number },
       columnsNumber: { type: Number },
       order: { type: String },
-      processor: { type: String },
+      processor: { type: Object },
       itemsButtons: { type: Array },
     };
-  }
+  };
 
   static get styles() {
     return styles;
-  }
+  };
 
   firstUpdated() {
-    this.board = this.shadowRoot.querySelector("tasksistant-board-component");
+    this.board = this.shadowRoot.querySelector('tasksistant-board-component');
     this.buttonMessage = 'Load';
-  }
+  };
 
-  loadReloadBoard() {
+  loadBoard() {
     this.processor = new Processor(this.rowsNumber, this.columnsNumber);
     this.board.linkBoardSpace();
-  }
+    this.buttonMessage = 'Reload';
+    this.reload = true;
+  };
+
+  reloadBoard() {
+    this.board.boardSpace = [];
+    this.board.linkBoardSpace();
+  };
 
   setBoardSpace(e) {
     const dimension = e.target.name;
@@ -65,40 +77,58 @@ export class TasksistantBoardCase extends LitElement {
     this.board.navigateFromCurrentNodeTo(direction);
   };
 
-  _validateNeighbors() {
-    const board = this.board;
-    const origin = board.currentNode.coordinates;
-    [
-      [origin[0] + 1, origin[1]],
-      [origin[0], origin[1] + 1],
-      [origin[0] - 1, origin[1]],
-      [origin[0], origin[1] - 1],
-    ].map((coordinates) => {
-      const cellToEvaluate = board.getCellByCoordinates(
-        coordinates[0],
-        coordinates[1]
-      );
-      if(cellToEvaluate){
-        this._analyze(cellToEvaluate.cell.getNodeContent());
-      };
-    });
-  }
-
-  _analyze(nodeData) {
-    this.itemsButtons = this.processor.getValidNeighbors(nodeData);
-  }
+  _createItemButton(neighborData){
+    const canvasTitle = `${neighborData.type} ${neighborData.figure}`
+    const canvasProperties ={
+      canvasMargin: 20,
+      canvasHeight: 100,
+      canvasWidth: 100,
+      figureProperties: {
+        figure: neighborData.figure,
+        sides: {
+          left: '',
+          right: '',
+          down: '',
+          up: ''
+        }
+      },
+      stripes:  neighborData.stripes
+    };
+    const value = 'none';
+    const buttonTitle = canvasTitle;
+    return {canvasTitle, canvasProperties, value, buttonTitle};
+  };
 
   _fillCell() {
     let nodeData = {};
+    this.currentNode = this.board.currentNode.cell.getNodeContent();
     this._giveLifeToCurrentCell();
     this._giveLifeToNeighboringCells();
     if(this.setBodyNodes){
-      nodeData = this.processor.setNextNode(nextNodeInfo);
+      const fullData = this.processor.setBodyNode(this.previousNode, this.currentNode);
+      nodeData = fullData.newNode;
+      this.previousNode = nodeData.previousNode;
     } else {
-      nodeData = this.processor.setStartNode();
+      nodeData = {...this.processor.setInitialNode(this.board.currentNode.coordinates)};
+      this.previousNode = {...nodeData};
+      this.setBodyNodes = true;
     };
     this.order = nodeData.command;
     this.board.executeOrderOnCurrentNode(this.order);
+    this.board.currentNode.cell.setNodeContent({...nodeData});
+    this._analyze({...nodeData});
+  };
+  
+  _analyze(nodeData) {
+    this.itemsButtons = [];
+    const validNeighbors = this.processor.getValidNeighbors(nodeData);
+    for (const neighborData of validNeighbors) {
+      const xAxis = neighborData.coordinates[0];
+      const yAxis = neighborData.coordinates[1];
+      this.board.setCellStateByCoordinates(xAxis, yAxis, neighborData);
+      this.itemsButtons = [...this.itemsButtons, this._createItemButton(neighborData)];
+    };
+    this.currentNodeValidNeighbors =  validNeighbors;
   };
 
   _giveLifeToCurrentCell(){
@@ -119,10 +149,6 @@ export class TasksistantBoardCase extends LitElement {
         cellFromBoard.cell.classList.add('alive');
       };
     });
-  };
-
-  _getNeighboringCoordinates() {
-
   };
 
   render() {
@@ -153,22 +179,27 @@ export class TasksistantBoardCase extends LitElement {
             value="0"
             @input="${this.setBoardSpace}"
           />
-          <button @click="${this.loadReloadBoard}">
+          ${this.reload ? html`
+          <button @click="${this.reloadBoard}">
             ${this.buttonMessage}
           </button>
+          ` : html`
+          <button @click="${this.loadBoard}">
+            ${this.buttonMessage}
+          </button>`}
           <div id="control-pad">
             <div id="up-section">
               <div
                 id="arrow-up"
                 value="top"
-                @click="${this._moveCurrentNode}"
+                @click="${this._moveCurrentNodeToDirection}"
               ></div>
             </div>
             <div id="middle-section">
               <div
                 id="arrow-left"
                 value="left"
-                @click="${this._moveCurrentNode}"
+                @click="${this._moveCurrentNodeToDirection}"
               ></div>
               <div id="circle-container">
                 <div
@@ -179,14 +210,14 @@ export class TasksistantBoardCase extends LitElement {
               <div
                 id="arrow-right"
                 value="right"
-                @click="${this._moveCurrentNode}"
+                @click="${this._moveCurrentNodeToDirection}"
               ></div>
             </div>
             <div id="bottom-section">
               <div
                 id="arrow-down"
                 value="bottom"
-                @click="down${this._moveCurrentNode}"
+                @click="down${this._moveCurrentNodeToDirection}"
               ></div>
             </div>
           </div>
